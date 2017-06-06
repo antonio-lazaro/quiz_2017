@@ -40,7 +40,8 @@ exports.create = function (req, res, next) {
     var tip = models.Tip.build(
         {
             text: req.body.text,
-            QuizId: req.quiz.id
+            QuizId: req.quiz.id,
+            AuthorId: req.session.user.id
         });
 
     tip.save()
@@ -81,6 +82,21 @@ exports.accept = function (req, res, next) {
         req.flash('error', 'Error al aceptar una Pista: ' + error.message);
         next(error);
     });
+};
+
+
+// MW que permite acciones solamente si al usuario logeado es admin o es el autor del tip.
+exports.adminOrAuthorRequired = function(req, res, next){
+
+    var isAdmin  = req.session.user.isAdmin;
+    var isAuthor = req.tip.AuthorId === req.session.user.id;
+
+    if (isAdmin || isAuthor) {
+        next();
+    } else {
+        console.log('Operación prohibida: El usuario logeado no es el autor del tip, ni un administrador.');
+        res.send(403);
+    }
 };
 
 

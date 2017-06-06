@@ -84,9 +84,9 @@ exports.adminOrMyselfRequired = function(req, res, next){
 exports.adminAndNotMyselfRequired = function(req, res, next){
 
     var isAdmin   = req.session.user.isAdmin;
-    var isAnother = req.user.id !== req.session.user.id;
+    var isAuthor = req.tip.author.id == req.session.user.id;
 
-    if (isAdmin && isAnother) {
+    if (isAdmin || isAuthor) {
         next();
     } else {
         console.log('Ruta prohibida: es el usuario logeado o no es administrador.');

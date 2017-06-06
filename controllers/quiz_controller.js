@@ -8,7 +8,14 @@ exports.load = function (req, res, next, quizId) {
 
     models.Quiz.findById(quizId, {
         include: [
-            models.Tip,
+            {
+                model: models.Tip,
+                include: [{
+                    model: models.User, 
+                    as: 'Author',
+                    required: false
+                }]
+            },
             {model: models.User, as: 'Author'}
         ]
     })
@@ -103,6 +110,63 @@ exports.index = function (req, res, next) {
 exports.show = function (req, res, next) {
 
     res.render('quizzes/show', {quiz: req.quiz});
+};
+
+exports.countQuiz = function (req, res, next) {
+    // Get total quiz count
+    models.Quiz.count({})
+    .then(function (count) {
+        req.totalQuizCount = count;
+        next();
+    });
+}
+
+// GET /quizzes/randomplay
+exports.randomplay = function (req, res, next) {
+
+    // Set session variables if not set
+    if (!req.session.answers)
+        req.session.answers = [];
+
+    if (!req.session.score) {
+        req.session.score = 0;
+    }
+
+    var score = req.session.score;
+
+    // If all quizzes answered
+    if (req.session.answers.length == req.totalQuizCount) {
+        req.session.answers = [];
+        req.session.score = 0;
+        res.render('quizzes/random_nomore', {
+            score: score
+        });
+        next();
+    }
+
+    // Random id
+    var quizId = Math.floor(Math.random() * req.totalQuizCount + 1);
+    while (req.session.answers.includes(quizId) && req.session.answers.length <= req.totalQuizCount)
+        quizId = Math.floor(Math.random() * (req.totalQuizCount) + 1);
+
+    req.session.answers.push(quizId); 
+    models.Quiz.findById(quizId)
+    .then(function (quiz) {
+        if (quiz) {
+            req.quiz = quiz;
+            res.render('quizzes/random_play', {
+                quiz: req.quiz, 
+                answer: '',
+                score: score
+            });
+            next();
+        } else {
+            throw new Error('No existe ningún quiz con id=' + quizId);
+        }
+    })
+    .catch(function (error) {
+        next(error);
+    });
 };
 
 
@@ -220,5 +284,34 @@ exports.check = function (req, res, next) {
         quiz: req.quiz,
         result: result,
         answer: answer
+    });
+};
+
+// GET /quizzes/randomcheck
+exports.randomcheck = function (req, res, next) {
+
+    var answer = req.query.answer || "";
+    
+    if (!req.session.score) {
+        req.session.score = 0;
+    }
+
+    var result = answer.toLowerCase().trim() === req.quiz.answer.toLowerCase().trim();
+
+    var score = 0;
+    if (result) {
+        req.session.score++;
+        score = req.session.score;
+
+    } else {
+        score = req.session.score;
+        req.session.score = 0;
+    }
+
+    res.render('quizzes/random_result', {
+        quiz: req.quiz,
+        result: result,
+        answer: answer,
+        score: score
     });
 };
